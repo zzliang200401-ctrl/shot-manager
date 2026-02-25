@@ -1,0 +1,4 @@
+Database tables initialized
+🎬 Shot Manager Server running on http://0.0.0.0:3001
+📁 Upload directory: /root/.openclaw/workspace/shot-manager/assets/uploads
+🌐 WebSocket enabled for real-time updates
