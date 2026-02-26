@@ -12,7 +12,7 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3000;
 const UPLOAD_DIR = path.join(__dirname, '../assets/uploads');
 
 // 确保上传目录存在
