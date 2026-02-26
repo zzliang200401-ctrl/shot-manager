@@ -6,9 +6,8 @@ echo Shot Manager v1.0
 echo ==========================================
 echo.
 
-echo Starting server...
 cd backend
-node server.js
+node server-simple.js
 
 echo.
 echo Server stopped
