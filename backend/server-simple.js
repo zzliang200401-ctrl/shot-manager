@@ -245,5 +245,5 @@ app.get('*', (req, res) => {
 // Start server
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`Shot Manager running at http://localhost:${PORT}`);
-    console.log(`Data saved to: ${DB_FILE}`);
+    console.log('Data saved to: data/database.json');
 });
