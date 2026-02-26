@@ -25,6 +25,13 @@ app.use(cors());
 app.use(express.json());
 app.use('/assets', express.static(UPLOAD_DIR));
 
+// 静态文件服务 - 前端
+const FRONTEND_DIR = path.join(__dirname, '../frontend');
+app.use(express.static(FRONTEND_DIR));
+
+// API 路由前缀
+const API_PREFIX = '/api';
+
 // 文件上传配置
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
@@ -447,6 +454,11 @@ app.get('/api/projects/:projectId/stats', (req, res) => {
             });
         });
     });
+});
+
+// 前端路由 - 所有非 API 请求返回 index.html
+app.get('*', (req, res) => {
+    res.sendFile(path.join(FRONTEND_DIR, 'index.html'));
 });
 
 // 启动服务器
