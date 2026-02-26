@@ -549,7 +549,7 @@
             const formData = new FormData(e.target);
             
             try {
-                await fetch(`${API_BASE}/projects`, {
+                const response = await fetch(`${API_BASE}/projects`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -558,11 +558,13 @@
                         status: formData.get('status')
                     })
                 });
+                if (!response.ok) throw new Error('Server error');
                 closeModal();
                 loadProjects();
                 showToast('项目创建成功');
             } catch (err) {
-                showToast('创建失败', 'error');
+                console.error('Create project error:', err);
+                showToast('创建失败: ' + err.message, 'error');
             }
         }
 
