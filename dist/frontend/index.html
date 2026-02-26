@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shot Manager - 影视镜头管理系统</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .gradient-bg { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); }
+        .glass-card { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .status-pending { background: #fbbf24; color: #92400e; }
+        .status-progress { background: #3b82f6; color: white; }
+        .status-review { background: #8b5cf6; color: white; }
+        .status-completed { background: #10b981; color: white; }
+        .priority-1 { border-left: 4px solid #ef4444; }
+        .priority-2 { border-left: 4px solid #f97316; }
+        .priority-3 { border-left: 4px solid #eab308; }
+        .priority-4 { border-left: 4px solid #22c55e; }
+        .sidebar-item:hover { background: rgba(255, 255, 255, 0.05); }
+        .sidebar-item.active { background: rgba(59, 130, 246, 0.2); border-left: 3px solid #3b82f6; }
+        .shot-card { transition: all 0.3s ease; }
+        .shot-card:hover { transform: translateY(-2px); box-shadow: 0 10px 40px rgba(0,0,0,0.3); }
+        .modal-overlay { background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(4px); }
+    </style>
+</head>
+<body class="gradient-bg text-white min-h-screen">
+    <div id="app" class="flex h-screen overflow-hidden">
+        <!-- Sidebar -->
+        <aside class="w-64 glass-card flex flex-col">
+            <div class="p-6 border-b border-white/10">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-film text-xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-bold text-lg">Shot Manager</h1>
+                        <p class="text-xs text-gray-400">v1.0.0</p>
+                    </div>
+                </div>
+            </div>
+            
+            <nav class="flex-1 py-4">
+                <div class="px-4 mb-2 text-xs text-gray-500 uppercase tracking-wider">项目</div>
+                <a href="#" onclick="showSection('projects')" id="nav-projects" class="sidebar-item active flex items-center px-6 py-3 text-sm">
+                    <i class="fas fa-folder-open w-5"></i>
+                    <span>项目管理</span>
+                </a>
+                <a href="#" onclick="showSection('shots')" id="nav-shots" class="sidebar-item flex items-center px-6 py-3 text-sm">
+                    <i class="fas fa-video w-5"></i>
+                    <span>镜头管理</span>
+                </a>
+                <a href="#" onclick="showSection('assets')" id="nav-assets" class="sidebar-item flex items-center px-6 py-3 text-sm">
+                    <i class="fas fa-cube w-5"></i>
+                    <span>资产管理</span>
+                </a>
+                
+                <div class="px-4 mt-6 mb-2 text-xs text-gray-500 uppercase tracking-wider">任务</div>
+                <a href="#" onclick="showSection('tasks')" id="nav-tasks" class="sidebar-item flex items-center px-6 py-3 text-sm">
+                    <i class="fas fa-tasks w-5"></i>
+                    <span>任务列表</span>
+                </a>
+                
+                <div class="px-4 mt-6 mb-2 text-xs text-gray-500 uppercase tracking-wider">团队</div>
+                <a href="#" onclick="showSection('people')" id="nav-people" class="sidebar-item flex items-center px-6 py-3 text-sm">
+                    <i class="fas fa-users w-5"></i>
+                    <span>人员管理</span>
+                </a>
+            </nav>
+            
+            <div class="p-4 border-t border-white/10">
+                <div class="glass-card rounded-lg p-3">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-500"></div>
+                        <div>
+                            <p class="text-sm font-medium">当前用户</p>
+                            <p class="text-xs text-gray-400">Supervisor</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 overflow-auto">
+            <!-- Top Bar -->
+            <header class="glass-card sticky top-0 z-40 px-8 py-4 flex justify-between items-center">
+                <div class="flex items-center space-x-4">
+                    <h2 id="page-title" class="text-2xl font-bold">项目管理</h2>
+                    <span id="current-project-badge" class="hidden px-3 py-1 rounded-full bg-blue-600/30 text-blue-300 text-sm">
+                        当前项目: <span id="current-project-name"></span>
+                    </span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button onclick="refreshData()" class="p-2 rounded-lg hover:bg-white/10 transition">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                    <button onclick="showCreateModal()" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg flex items-center space-x-2 transition">
+                        <i class="fas fa-plus"></i>
+                        <span id="create-btn-text">新建项目</span>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Content Area -->
+            <div id="content-area" class="p-8">
+                <!-- Dynamic content loaded here -->
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal -->
+    <div id="modal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4">
+        <div class="glass-card rounded-2xl w-full max-w-lg max-h-[90vh] overflow-auto">
+            <div class="p-6 border-b border-white/10 flex justify-between items-center">
+                <h3 id="modal-title" class="text-xl font-bold">新建</h3>
+                <button onclick="closeModal()" class="p-2 hover:bg-white/10 rounded-lg">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div id="modal-content" class="p-6">
+                <!-- Form content -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-4 right-4 glass-card px-6 py-3 rounded-lg hidden transform transition-all duration-300">
+        <span id="toast-message"></span>
+    </div>
+
+    <script>
+        const API_BASE = 'http://' + window.location.hostname + ':3001/api';
+        let currentProject = null;
+        let currentSection = 'projects';
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            loadProjects();
+            initWebSocket();
+        });
+
+        // WebSocket 实时更新
+        function initWebSocket() {
+            const ws = new WebSocket('ws://' + window.location.hostname + ':3001');
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                showToast(data.type + ' - 已更新');
+                refreshData();
+            };
+        }
+
+        // 显示区域
+        function showSection(section) {
+            currentSection = section;
+            
+            // 更新导航
+            document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
+            document.getElementById('nav-' + section).classList.add('active');
+            
+            // 更新页面标题和按钮
+            const titles = {
+                projects: '项目管理',
+                shots: '镜头管理',
+                assets: '资产管理',
+                tasks: '任务列表',
+                people: '人员管理'
+            };
+            document.getElementById('page-title').textContent = titles[section];
+            document.getElementById('create-btn-text').textContent = '新建' + titles[section].replace('管理', '').replace('列表', '');
+            
+            // 加载内容
+            switch(section) {
+                case 'projects': loadProjects(); break;
+                case 'shots': loadShots(); break;
+                case 'assets': loadAssets(); break;
+                case 'tasks': loadTasks(); break;
+                case 'people': loadPeople(); break;
+            }
+        }
+
+        // ============ 项目管理 ============
+        async function loadProjects() {
+            try {
+                const response = await fetch(`${API_BASE}/projects`);
+                const projects = await response.json();
+                
+                const container = document.getElementById('content-area');
+                container.innerHTML = `
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        ${projects.map(p => `
+                            <div class="glass-card rounded-xl p-6 shot-card cursor-pointer" onclick="selectProject('${p.id}', '${p.name}')">
+                                <div class="flex justify-between items-start mb-4">
+                                    <div class="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                                        <i class="fas fa-film text-2xl"></i>
+                                    </div>
+                                    <span class="px-2 py-1 rounded text-xs ${p.status === 'active' ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-400'}">
+                                        ${p.status === 'active' ? '进行中' : '已归档'}
+                                    </span>
+                                </div>
+                                <h3 class="text-xl font-bold mb-2">${p.name}</h3>
+                                <p class="text-gray-400 text-sm mb-4 line-clamp-2">${p.description || '无描述'}</p>
+                                <div class="flex justify-between items-center text-sm text-gray-500">
+                                    <span><i class="far fa-calendar-alt mr-1"></i> ${new Date(p.created_at).toLocaleDateString()}</span>
+                                    <button onclick="event.stopPropagation(); deleteProject('${p.id}')" class="text-red-400 hover:text-red-300">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            } catch (err) {
+                showToast('加载失败: ' + err.message, 'error');
+            }
+        }
+
+        function selectProject(id, name) {
+            currentProject = { id, name };
+            document.getElementById('current-project-badge').classList.remove('hidden');
+            document.getElementById('current-project-name').textContent = name;
+            showSection('shots');
+        }
+
+        // ============ 镜头管理 ============
+        async function loadShots() {
+            if (!currentProject) {
+                document.getElementById('content-area').innerHTML = `
+                    <div class="text-center py-20">
+                        <i class="fas fa-folder-open text-6xl text-gray-600 mb-4"></i>
+                        <p class="text-xl text-gray-400">请先选择一个项目</p>
+                        <button onclick="showSection('projects')" class="mt-4 bg-blue-600 px-6 py-2 rounded-lg">选择项目</button>
+                    </div>
+                `;
+                return;
+            }
+
+            try {
+                const [shotsRes, seqRes] = await Promise.all([
+                    fetch(`${API_BASE}/projects/${currentProject.id}/shots`),
+                    fetch(`${API_BASE}/projects/${currentProject.id}/sequences`)
+                ]);
+                const shots = await shotsRes.json();
+                const sequences = await seqRes.json();
+
+                const container = document.getElementById('content-area');
+                container.innerHTML = `
+                    <div class="mb-6 flex space-x-4">
+                        <select id="sequence-filter" onchange="filterShots()" class="bg-white/5 border border-white/10 rounded-lg px-4 py-2">
+                            <option value="">全部场次</option>
+                            ${sequences.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}
+                        </select>
+                        <select id="status-filter" onchange="filterShots()" class="bg-white/5 border border-white/10 rounded-lg px-4 py-2">
+                            <option value="">全部状态</option>
+                            <option value="pending">待开始</option>
+                            <option value="in_progress">进行中</option>
+                            <option value="review">审核中</option>
+                            <option value="completed">已完成</option>
+                        </select>
+                    </div>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6" id="shots-grid">
+                        ${shots.map(s => renderShotCard(s)).join('')}
+                    </div>
+                `;
+            } catch (err) {
+                showToast('加载失败: ' + err.message, 'error');
+            }
+        }
+
+        function renderShotCard(shot) {
+            const statusClass = {
+                pending: 'status-pending',
+                in_progress: 'status-progress',
+                review: 'status-review',
+                completed: 'status-completed'
+            }[shot.status] || 'status-pending';
+            
+            const statusText = {
+                pending: '待开始',
+                in_progress: '进行中',
+                review: '审核中',
+                completed: '已完成'
+            }[shot.status] || '待开始';
+
+            return `
+                <div class="glass-card rounded-xl p-6 shot-card priority-${shot.priority}">
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <h3 class="text-xl font-bold">${shot.name}</h3>
+                            <p class="text-sm text-gray-400">${shot.description || ''}</p>
+                        </div>
+                        <span class="px-2 py-1 rounded text-xs font-medium ${statusClass}">${statusText}</span>
+                    </div>
+                    <div class="space-y-2 text-sm text-gray-400 mb-4">
+                        <div class="flex justify-between">
+                            <span>帧范围:</span>
+                            <span class="text-white">${shot.frame_start || '-'} - ${shot.frame_end || '-'}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>FPS:</span>
+                            <span class="text-white">${shot.fps || 24}</span>
+                        </div>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <select onchange="updateShotStatus('${shot.id}', this.value)" class="bg-white/5 border border-white/10 rounded px-3 py-1 text-sm">
+                            <option value="pending" ${shot.status === 'pending' ? 'selected' : ''}>待开始</option>
+                            <option value="in_progress" ${shot.status === 'in_progress' ? 'selected' : ''}>进行中</option>
+                            <option value="review" ${shot.status === 'review' ? 'selected' : ''}>审核中</option>
+                            <option value="completed" ${shot.status === 'completed' ? 'selected' : ''}>已完成</option>
+                        </select>
+                        <div class="flex space-x-2">
+                            <button onclick="showShotDetail('${shot.id}')" class="p-2 hover:bg-white/10 rounded">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <button onclick="deleteShot('${shot.id}')" class="p-2 hover:bg-red-500/20 text-red-400 rounded">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function updateShotStatus(id, status) {
+            try {
+                await fetch(`${API_BASE}/shots/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status })
+                });
+                showToast('状态已更新');
+            } catch (err) {
+                showToast('更新失败', 'error');
+            }
+        }
+
+        // ============ 资产管理 ============
+        async function loadAssets() {
+            if (!currentProject) {
+                document.getElementById('content-area').innerHTML = `
+                    <div class="text-center py-20">
+                        <i class="fas fa-cube text-6xl text-gray-600 mb-4"></i>
+                        <p class="text-xl text-gray-400">请先选择一个项目</p>
+                    </div>
+                `;
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/projects/${currentProject.id}/assets`);
+                const assets = await response.json();
+
+                const typeIcons = {
+                    character: 'fa-user',
+                    prop: 'fa-box',
+                    environment: 'fa-mountain',
+                    vehicle: 'fa-car',
+                    weapon: 'fa-crosshairs'
+                };
+
+                const container = document.getElementById('content-area');
+                container.innerHTML = `
+                    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                        ${assets.map(a => `
+                            <div class="glass-card rounded-xl p-4 shot-card text-center">
+                                <div class="w-16 h-16 mx-auto mb-3 rounded-lg bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center">
+                                    <i class="fas ${typeIcons[a.type] || 'fa-cube'} text-2xl"></i>
+                                </div>
+                                <h4 class="font-medium mb-1 truncate">${a.name}</h4>
+                                <p class="text-xs text-gray-400 mb-2">${a.type || '未分类'}</p>
+                                <span class="px-2 py-1 rounded text-xs ${a.status === 'completed' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}">
+                                    ${a.status === 'completed' ? '完成' : '进行中'}
+                                </span>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            } catch (err) {
+                showToast('加载失败', 'error');
+            }
+        }
+
+        // ============ 任务管理 ============
+        async function loadTasks() {
+            if (!currentProject) {
+                document.getElementById('content-area').innerHTML = `
+                    <div class="text-center py-20">
+                        <i class="fas fa-tasks text-6xl text-gray-600 mb-4"></i>
+                        <p class="text-xl text-gray-400">请先选择一个项目</p>
+                    </div>
+                `;
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/projects/${currentProject.id}/tasks`);
+                const tasks = await response.json();
+
+                const container = document.getElementById('content-area');
+                container.innerHTML = `
+                    <div class="space-y-4">
+                        ${tasks.map(t => `
+                            <div class="glass-card rounded-xl p-4 flex items-center justify-between priority-${t.priority}">
+                                <div class="flex items-center space-x-4">
+                                    <input type="checkbox" ${t.status === 'completed' ? 'checked' : ''} 
+                                           onchange="toggleTaskStatus('${t.id}', this.checked)"
+                                           class="w-5 h-5 rounded border-gray-600">
+                                    <div>
+                                        <h4 class="font-medium ${t.status === 'completed' ? 'line-through text-gray-500' : ''}">${t.name}</h4>
+                                        <p class="text-sm text-gray-400">负责人: ${t.assignee || '未分配'}</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center space-x-4">
+                                    ${t.due_date ? `<span class="text-sm text-gray-400"><i class="far fa-clock mr-1"></i> ${t.due_date}</span>` : ''}
+                                    <span class="px-2 py-1 rounded text-xs ${t.status === 'completed' ? 'bg-green-500/20 text-green-400' : 'bg-blue-500/20 text-blue-400'}">
+                                        ${t.status === 'completed' ? '已完成' : '进行中'}
+                                    </span>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            } catch (err) {
+                showToast('加载失败', 'error');
+            }
+        }
+
+        async function toggleTaskStatus(id, completed) {
+            try {
+                await fetch(`${API_BASE}/tasks/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: completed ? 'completed' : 'pending' })
+                });
+                loadTasks();
+                showToast(completed ? '任务已完成' : '任务已重新打开');
+            } catch (err) {
+                showToast('更新失败', 'error');
+            }
+        }
+
+        // ============ 人员管理 ============
+        async function loadPeople() {
+            try {
+                const response = await fetch(`${API_BASE}/people`);
+                const people = await response.json();
+
+                const container = document.getElementById('content-area');
+                container.innerHTML = `
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        ${people.map(p => `
+                            <div class="glass-card rounded-xl p-6 flex items-center space-x-4">
+                                <div class="w-16 h-16 rounded-full bg-gradient-to-br from-green-400 to-blue-500 flex items-center justify-center text-2xl font-bold">
+                                    ${p.name.charAt(0)}
+                                </div>
+                                <div class="flex-1">
+                                    <h4 class="font-bold text-lg">${p.name}</h4>
+                                    <p class="text-sm text-gray-400">${p.role || '未设置角色'}</p>
+                                    <p class="text-sm text-gray-500">${p.department || ''}</p>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            } catch (err) {
+                showToast('加载失败', 'error');
+            }
+        }
+
+        // ============ Modal 管理 ============
+        function showCreateModal() {
+            const modal = document.getElementById('modal');
+            const content = document.getElementById('modal-content');
+            const title = document.getElementById('modal-title');
+            
+            modal.classList.remove('hidden');
+            
+            switch(currentSection) {
+                case 'projects':
+                    title.textContent = '新建项目';
+                    content.innerHTML = `
+                        <form onsubmit="createProject(event)">
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm text-gray-400 mb-2">项目名称</label>
+                                    <input type="text" name="name" required class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:border-blue-500 outline-none">
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-400 mb-2">描述</label>
+                                    <textarea name="description" rows="3" class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:border-blue-500 outline-none"></textarea>
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-400 mb-2">状态</label>
+                                    <select name="status" class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2">
+                                        <option value="active">进行中</option>
+                                        <option value="archived">已归档</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="mt-6 flex justify-end space-x-3">
+                                <button type="button" onclick="closeModal()" class="px-4 py-2 rounded-lg hover:bg-white/10">取消</button>
+                                <button type="submit" class="bg-blue-600 hover:bg-blue-700 px-6 py-2 rounded-lg">创建</button>
+                            </div>
+                        </form>
+                    `;
+                    break;
+                    
+                case 'shots':
+                    title.textContent = '新建镜头';
+                    content.innerHTML = `
+                        <form onsubmit="createShot(event)">
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm text-gray-400 mb-2">镜头名称</label>
+                                    <input type="text" name="name" placeholder="如: SC001_001" required class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2">
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-400 mb-2">描述</label>
+                                    <input type="text" name="description" class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2">
+                                </div>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm text-gray-400 mb-2">起始帧</label>
+                                        <input type="number" name="frame_start" class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm text-gray-400 mb-2">结束帧</label>
+                                        <input type="number" name="frame_end" class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-400 mb-2">优先级</label>
+                                    <select name="priority" class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2">
+                                        <option value="1">紧急 (P1)</option>
+                                        <option value="2">高 (P2)</option>
+                                        <option value="3" selected>中 (P3)</option>
+                                        <option value="4">低 (P4)</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="mt-6 flex justify-end space-x-3">
+                                <button type="button" onclick="closeModal()" class="px-4 py-2 rounded-lg hover:bg-white/10">取消</button>
+                                <button type="submit" class="bg-blue-600 hover:bg-blue-700 px-6 py-2 rounded-lg">创建</button>
+                            </div>
+                        </form>
+                    `;
+                    break;
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('modal').classList.add('hidden');
+        }
+
+        // ============ API 操作 ============
+        async function createProject(e) {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            
+            try {
+                await fetch(`${API_BASE}/projects`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: formData.get('name'),
+                        description: formData.get('description'),
+                        status: formData.get('status')
+                    })
+                });
+                closeModal();
+                loadProjects();
+                showToast('项目创建成功');
+            } catch (err) {
+                showToast('创建失败', 'error');
+            }
+        }
+
+        async function createShot(e) {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            
+            try {
+                await fetch(`${API_BASE}/projects/${currentProject.id}/shots`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: formData.get('name'),
+                        description: formData.get('description'),
+                        frame_start: parseInt(formData.get('frame_start')) || null,
+                        frame_end: parseInt(formData.get('frame_end')) || null,
+                        priority: parseInt(formData.get('priority'))
+                    })
+                });
+                closeModal();
+                loadShots();
+                showToast('镜头创建成功');
+            } catch (err) {
+                showToast('创建失败', 'error');
+            }
+        }
+
+        async function deleteProject(id) {
+            if (!confirm('确定要删除这个项目吗？此操作不可恢复。')) return;
+            
+            try {
+                await fetch(`${API_BASE}/projects/${id}`, { method: 'DELETE' });
+                loadProjects();
+                showToast('项目已删除');
+            } catch (err) {
+                showToast('删除失败', 'error');
+            }
+        }
+
+        // ============ 工具函数 ============
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toast-message');
+            toastMessage.textContent = message;
+            toast.classList.remove('hidden');
+            toast.classList.add('translate-y-0');
+            
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 3000);
+        }
+
+        function refreshData() {
+            showSection(currentSection);
+            showToast('数据已刷新');
+        }
+
+        // 点击模态框外部关闭
+        document.getElementById('modal').addEventListener('click', (e) => {
+            if (e.target.id === 'modal') closeModal();
+        });
+    </script>
+</body>
+</html>
